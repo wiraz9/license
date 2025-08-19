@@ -1,20 +1,130 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+
+
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Switch, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
+import { db } from './firebaseConfig';
+import { collection, onSnapshot } from 'firebase/firestore';
+
+export type License = {
+  id: string;
+  key: string;
+  type: string;
+  isActive: boolean;
+  createdAt: string;
+  activatedAt?: string;
+  currentDevices?: number;
+  maxDevices?: number;
+  notes?: string;
+  deviceId?: string;
+  deviceInfo?: {
+    brand?: string;
+    deviceType?: number;
+    modelName?: string;
+    osName?: string;
+    osVersion?: string;
+    totalMemory?: number;
+  };
+};
 
 export default function App() {
+  const [licenseList, setLicenseList] = useState<License[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = collection(db, 'licenses'); // ganti dengan nama collection kamu
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data: License[] = snapshot.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          key: d.key || '',
+          type: d.type || '',
+          isActive: d.isActive ?? false,
+          createdAt: d.createdAt || '',
+          activatedAt: d.activatedAt || '',
+          currentDevices: d.currentDevices ?? 0,
+          maxDevices: d.maxDevices ?? 0,
+          notes: d.notes || '',
+          deviceId: d.deviceId || '',
+          deviceInfo: d.deviceInfo || {},
+        };
+      });
+      setLicenseList(data);
+      setLoading(false);
+    }, err => {
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   return (
     <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
+      <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+      <Text style={styles.title}>Admin Panel - License Manager</Text>
+      <View style={styles.dashboard}>
+        <View style={styles.dashboardItem}><Text style={styles.dashboardNumber}>{licenseList.length}</Text><Text>Total</Text></View>
+        <View style={styles.dashboardItem}><Text style={styles.dashboardNumber}>{licenseList.filter(l => !l.isActive).length}</Text><Text>Ready</Text></View>
+        <View style={styles.dashboardItem}><Text style={styles.dashboardNumber}>{licenseList.filter(l => l.isActive).length}</Text><Text>Terpakai</Text></View>
+      </View>
+      <TouchableOpacity style={styles.createButton}><Text style={styles.createButtonText}>+ Buat License Baru</Text></TouchableOpacity>
+      <View style={styles.actionRow}>
+        <TouchableOpacity style={styles.actionButton}><Text>Refresh</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#ffcccc' }]}><Text>Reset App</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#ccf2ff' }]}><Text>Info</Text></TouchableOpacity>
+      </View>
+      {loading ? (
+        <ActivityIndicator size="large" color="#1abc9c" style={{ marginTop: 32 }} />
+      ) : (
+        <ScrollView style={styles.licenseList}>
+          {licenseList.map((license, idx) => (
+            <View key={idx} style={styles.licenseCard}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={styles.licenseId}>{license.key}</Text>
+                <Text style={styles.status}>{license.type}</Text>
+              </View>
+              <Text>Created At: {license.createdAt}</Text>
+              {license.activatedAt ? <Text>Activated At: {license.activatedAt}</Text> : null}
+              <Text>Active: {license.isActive ? 'Aktif' : 'Belum Aktif'}</Text>
+              <Text>Current Devices: {license.currentDevices}</Text>
+              <Text>Max Devices: {license.maxDevices}</Text>
+              <Text>Device ID: {license.deviceId || '-'}</Text>
+              {license.deviceInfo && (
+                <View style={{ marginTop: 4, marginBottom: 4 }}>
+                  <Text>Device Info:</Text>
+                  <Text>- Brand: {license.deviceInfo.brand || '-'}</Text>
+                  <Text>- Model: {license.deviceInfo.modelName || '-'}</Text>
+                  <Text>- OS: {license.deviceInfo.osName || '-'} {license.deviceInfo.osVersion || ''}</Text>
+                  <Text>- Type: {license.deviceInfo.deviceType || '-'}</Text>
+                  <Text>- Memory: {license.deviceInfo.totalMemory || '-'}</Text>
+                </View>
+              )}
+              <Text>Notes: {license.notes || '-'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                <TouchableOpacity style={styles.copyButton}><Text>📋</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.deleteButton}><Text>🗑️</Text></TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
+  dashboard: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  dashboardItem: { alignItems: 'center', flex: 1 },
+  dashboardNumber: { fontSize: 24, fontWeight: 'bold' },
+  createButton: { backgroundColor: '#1abc9c', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 12 },
+  createButtonText: { color: '#fff', fontWeight: 'bold' },
+  actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  actionButton: { backgroundColor: '#e6e6e6', padding: 10, borderRadius: 8, flex: 1, alignItems: 'center', marginHorizontal: 4 },
+  licenseList: { flex: 1 },
+  licenseCard: { backgroundColor: '#f9f9f9', padding: 12, borderRadius: 8, marginBottom: 10, elevation: 2 },
+  licenseId: { fontWeight: 'bold', fontSize: 16 },
+  status: { backgroundColor: '#27ae60', color: '#fff', paddingHorizontal: 8, borderRadius: 6 },
+  copyButton: { marginLeft: 12 },
+  deleteButton: { marginLeft: 12 },
 });
