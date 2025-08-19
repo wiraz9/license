@@ -3,7 +3,26 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Switch, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
 import { db } from './firebaseConfig';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, deleteDoc, doc, query, where, getDocs } from 'firebase/firestore';
+import * as Clipboard from 'expo-clipboard';
+
+export type Activation = {
+  id: string;
+  activatedAt: string;
+  appVersion: string;
+  deviceId: string;
+  deviceInfo: {
+    brand?: string;
+    deviceType?: number;
+    modelName?: string;
+    osName?: string;
+    osVersion?: string;
+    totalMemory?: number;
+  };
+  licenseDocId: string;
+  licenseKey: string;
+  ownerName: string;
+};
 
 export type License = {
   id: string;
@@ -28,11 +47,13 @@ export type License = {
 
 export default function App() {
   const [licenseList, setLicenseList] = useState<License[]>([]);
+  const [activations, setActivations] = useState<Activation[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = collection(db, 'licenses'); // ganti dengan nama collection kamu
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    // Listen licenses
+    const q = collection(db, 'licenses');
+    const unsubscribeLicenses = onSnapshot(q, (snapshot) => {
       const data: License[] = snapshot.docs.map(doc => {
         const d = doc.data();
         return {
@@ -54,7 +75,30 @@ export default function App() {
     }, err => {
       setLoading(false);
     });
-    return () => unsubscribe();
+
+    // Listen activations
+    const qa = collection(db, 'activations');
+    const unsubscribeActivations = onSnapshot(qa, (snapshot) => {
+      const data: Activation[] = snapshot.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          activatedAt: d.activatedAt || '',
+          appVersion: d.appVersion || '',
+          deviceId: d.deviceId || '',
+          deviceInfo: d.deviceInfo || {},
+          licenseDocId: d.licenseDocId || '',
+          licenseKey: d.licenseKey || '',
+          ownerName: d.ownerName || '',
+        };
+      });
+      setActivations(data);
+    });
+
+    return () => {
+      unsubscribeLicenses();
+      unsubscribeActivations();
+    };
   }, []);
 
   return (
@@ -76,35 +120,62 @@ export default function App() {
         <ActivityIndicator size="large" color="#1abc9c" style={{ marginTop: 32 }} />
       ) : (
         <ScrollView style={styles.licenseList}>
-          {licenseList.map((license, idx) => (
-            <View key={idx} style={styles.licenseCard}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={styles.licenseId}>{license.key}</Text>
-                <Text style={styles.status}>{license.type}</Text>
-              </View>
-              <Text>Created At: {license.createdAt}</Text>
-              {license.activatedAt ? <Text>Activated At: {license.activatedAt}</Text> : null}
-              <Text>Active: {license.isActive ? 'Aktif' : 'Belum Aktif'}</Text>
-              <Text>Current Devices: {license.currentDevices}</Text>
-              <Text>Max Devices: {license.maxDevices}</Text>
-              <Text>Device ID: {license.deviceId || '-'}</Text>
-              {license.deviceInfo && (
-                <View style={{ marginTop: 4, marginBottom: 4 }}>
-                  <Text>Device Info:</Text>
-                  <Text>- Brand: {license.deviceInfo.brand || '-'}</Text>
-                  <Text>- Model: {license.deviceInfo.modelName || '-'}</Text>
-                  <Text>- OS: {license.deviceInfo.osName || '-'} {license.deviceInfo.osVersion || ''}</Text>
-                  <Text>- Type: {license.deviceInfo.deviceType || '-'}</Text>
-                  <Text>- Memory: {license.deviceInfo.totalMemory || '-'}</Text>
+          {licenseList.map((license, idx) => {
+            // Cari activation yang cocok
+            const activation = activations.find(a => a.licenseDocId === license.id || a.licenseKey === license.key);
+            const isActivated = !!activation;
+            return (
+              <View key={idx} style={styles.licenseCard}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.licenseId}>{license.key}</Text>
+                  <Text style={[styles.status, {backgroundColor: isActivated ? '#27ae60' : '#2fa4ff'}]}>
+                    {isActivated ? 'Terpakai' : 'Ready'}
+                  </Text>
                 </View>
-              )}
-              <Text>Notes: {license.notes || '-'}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                <TouchableOpacity style={styles.copyButton}><Text>📋</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.deleteButton}><Text>🗑️</Text></TouchableOpacity>
+                <Text>Lisensi: {license.key}</Text>
+                <Text>Owner: {activation ? activation.ownerName : '-'}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 4 }}>
+                  <Text>Status Lisensi: </Text>
+                  <Switch
+                    value={isActivated}
+                    disabled
+                    thumbColor={isActivated ? '#27ae60' : '#ccc'}
+                  />
+                </View>
+                {activation && (
+                  <View style={{ marginBottom: 4 }}>
+                    <Text>Activated At: {activation.activatedAt}</Text>
+                    <Text>Device ID: {activation.deviceId}</Text>
+                    <Text>App Version: {activation.appVersion}</Text>
+                    <Text>Device Info:</Text>
+                    <Text>- Brand: {activation.deviceInfo.brand || '-'}</Text>
+                    <Text>- Model: {activation.deviceInfo.modelName || '-'}</Text>
+                    <Text>- OS: {activation.deviceInfo.osName || '-'} {activation.deviceInfo.osVersion || ''}</Text>
+                    <Text>- Type: {activation.deviceInfo.deviceType || '-'}</Text>
+                    <Text>- Memory: {activation.deviceInfo.totalMemory || '-'}</Text>
+                  </View>
+                )}
+                <Text>Notes: {license.notes || '-'}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                  <TouchableOpacity
+                    style={styles.copyButton}
+                    onPress={() => Clipboard.setString(license.key)}
+                  >
+                    <Text>📋</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={async () => {
+                      // Hapus license di Firestore
+                      await deleteDoc(doc(db, 'licenses', license.id));
+                    }}
+                  >
+                    <Text>🗑️</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </ScrollView>
       )}
     </View>
