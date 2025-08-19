@@ -10,12 +10,13 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@react-native-firebase/app": "^23.0.1",
-    "@react-native-firebase/firestore": "^23.0.1",
-    "expo": "~53.0.20",
-    "expo-status-bar": "~2.2.3",
-    "react": "19.0.0",
-    "react-native": "0.79.5"
+  "@react-native-firebase/app": "^23.0.1",
+  "@react-native-firebase/firestore": "^23.0.1",
+  "expo": "~53.0.20",
+  "expo-status-bar": "~2.2.3",
+  "expo-clipboard": "^7.1.5",
+  "react": "19.0.0",
+  "react-native": "0.79.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

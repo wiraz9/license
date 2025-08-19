@@ -101,14 +101,23 @@ export default function App() {
     };
   }, []);
 
+  const [copyMessage, setCopyMessage] = useState("");
+  const [showCopyMessage, setShowCopyMessage] = useState(false);
+
+  const showToast = (msg: string) => {
+    setCopyMessage(msg);
+    setShowCopyMessage(true);
+    setTimeout(() => setShowCopyMessage(false), 2000);
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar backgroundColor="#fff" barStyle="dark-content" />
       <Text style={styles.title}>Admin Panel - License Manager</Text>
       <View style={styles.dashboard}>
-        <View style={styles.dashboardItem}><Text style={styles.dashboardNumber}>{licenseList.length}</Text><Text>Total</Text></View>
-        <View style={styles.dashboardItem}><Text style={styles.dashboardNumber}>{licenseList.filter(l => !l.isActive).length}</Text><Text>Ready</Text></View>
-        <View style={styles.dashboardItem}><Text style={styles.dashboardNumber}>{licenseList.filter(l => l.isActive).length}</Text><Text>Terpakai</Text></View>
+  <View style={styles.dashboardItem}><Text style={styles.dashboardNumber}>{licenseList.length}</Text><Text>Total</Text></View>
+  <View style={styles.dashboardItem}><Text style={styles.dashboardNumber}>{licenseList.filter(l => !activations.some(a => a.licenseDocId === l.id || a.licenseKey === l.key)).length}</Text><Text>Ready</Text></View>
+  <View style={styles.dashboardItem}><Text style={styles.dashboardNumber}>{licenseList.filter(l => activations.some(a => a.licenseDocId === l.id || a.licenseKey === l.key)).length}</Text><Text>Terpakai</Text></View>
       </View>
       <TouchableOpacity style={styles.createButton}><Text style={styles.createButtonText}>+ Buat License Baru</Text></TouchableOpacity>
       <View style={styles.actionRow}>
@@ -121,7 +130,7 @@ export default function App() {
       ) : (
         <ScrollView style={styles.licenseList}>
           {licenseList.map((license, idx) => {
-            // Cari activation yang cocok
+            // Status lisensi diambil dari keberadaan di activations
             const activation = activations.find(a => a.licenseDocId === license.id || a.licenseKey === license.key);
             const isActivated = !!activation;
             return (
@@ -159,15 +168,21 @@ export default function App() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
                   <TouchableOpacity
                     style={styles.copyButton}
-                    onPress={() => Clipboard.setString(license.key)}
+                    onPress={() => {
+                      Clipboard.setString(license.key);
+                      showToast('License berhasil di copy');
+                    }}
                   >
                     <Text>📋</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.deleteButton}
                     onPress={async () => {
-                      // Hapus license di Firestore
-                      await deleteDoc(doc(db, 'licenses', license.id));
+                      // Konfirmasi sebelum hapus
+                      const confirm = window.confirm ? window.confirm('Yakin hapus license ini?') : true;
+                      if (confirm) {
+                        await deleteDoc(doc(db, 'licenses', license.id));
+                      }
                     }}
                   >
                     <Text>🗑️</Text>
@@ -177,6 +192,13 @@ export default function App() {
             );
           })}
         </ScrollView>
+      )}
+      {showCopyMessage && (
+        <View style={{position: 'absolute', bottom: 40, left: 0, right: 0, alignItems: 'center'}}>
+          <View style={{backgroundColor: '#333', padding: 10, borderRadius: 8}}>
+            <Text style={{color: '#fff'}}>{copyMessage}</Text>
+          </View>
+        </View>
       )}
     </View>
   );
