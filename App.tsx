@@ -47,6 +47,35 @@ export type License = {
 };
 
 export default function App() {
+  const exportToCSV = async () => {
+    // Format header
+    let csv = 'no,License,Owner,Status\n';
+    licenseList.forEach((license, idx) => {
+      const activation = activations.find(a => a.licenseDocId === license.id || a.licenseKey === license.key);
+      const status = activation ? 'Terpakai' : 'Ready';
+      const owner = activation ? activation.ownerName : '-';
+      csv += `${idx + 1},${license.key},${owner},${status}\n`;
+    });
+    // Simpan ke file
+    try {
+      const FileSystem = require('expo-file-system');
+      const Sharing = require('expo-sharing');
+      const fileName = `licenses_export_${Date.now()}.csv`;
+      let fileUri = FileSystem.documentDirectory + fileName;
+      // Jika Android, simpan ke folder Download
+      if (FileSystem.ExternalDirectoryPath) {
+        fileUri = FileSystem.ExternalDirectoryPath + '/Download/' + fileName;
+      }
+      await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, { mimeType: 'text/csv' });
+      } else {
+        Alert.alert('Export Berhasil', `File CSV telah disimpan di: ${fileUri}`);
+      }
+    } catch (err) {
+      Alert.alert('Export Gagal', 'Terjadi kesalahan saat export data.');
+    }
+  };
   const [licenseList, setLicenseList] = useState<License[]>([]);
   const [activations, setActivations] = useState<Activation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,9 +177,9 @@ export default function App() {
         <Text style={styles.createButtonText}>+ Buat License Baru</Text>
       </TouchableOpacity>
       <View style={styles.actionRow}>
-        <TouchableOpacity style={styles.actionButton}><Text>Refresh</Text></TouchableOpacity>
-        <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#ffcccc' }]}><Text>Reset App</Text></TouchableOpacity>
-        <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#ccf2ff' }]}><Text>Info</Text></TouchableOpacity>
+  <TouchableOpacity style={styles.actionButton}><Text>Refresh</Text></TouchableOpacity>
+  <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#ffe066' }]} onPress={exportToCSV}><Text>Export</Text></TouchableOpacity>
+  <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#ccf2ff' }]}><Text>Info</Text></TouchableOpacity>
       </View>
       {loading ? (
         <ActivityIndicator size="large" color="#1abc9c" style={{ marginTop: 32 }} />

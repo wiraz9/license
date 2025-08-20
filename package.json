@@ -13,8 +13,10 @@
     "@react-native-firebase/app": "^23.0.1",
     "@react-native-firebase/firestore": "^23.0.1",
     "expo": "~53.0.20",
-    "expo-status-bar": "~2.2.3",
     "expo-clipboard": "~7.1.5",
+    "expo-file-system": "^18.1.11",
+    "expo-sharing": "^13.1.5",
+    "expo-status-bar": "~2.2.3",
     "react": "19.0.0",
     "react-native": "0.79.5"
   },
