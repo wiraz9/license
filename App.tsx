@@ -3,8 +3,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Switch, StyleSheet, StatusBar, ActivityIndicator } from 'react-native';
 import { db } from './firebaseConfig';
-import { collection, onSnapshot, deleteDoc, doc, query, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, deleteDoc, doc, addDoc } from 'firebase/firestore';
 import * as Clipboard from 'expo-clipboard';
+import { Alert } from 'react-native';
 
 export type Activation = {
   id: string;
@@ -119,7 +120,33 @@ export default function App() {
   <View style={styles.dashboardItem}><Text style={styles.dashboardNumber}>{licenseList.filter(l => !activations.some(a => a.licenseDocId === l.id || a.licenseKey === l.key)).length}</Text><Text>Ready</Text></View>
   <View style={styles.dashboardItem}><Text style={styles.dashboardNumber}>{licenseList.filter(l => activations.some(a => a.licenseDocId === l.id || a.licenseKey === l.key)).length}</Text><Text>Terpakai</Text></View>
       </View>
-      <TouchableOpacity style={styles.createButton}><Text style={styles.createButtonText}>+ Buat License Baru</Text></TouchableOpacity>
+      <TouchableOpacity
+        style={styles.createButton}
+        onPress={async () => {
+          // Generate license key sederhana
+          function generateLicenseKey() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            const number = Math.floor(1000 + Math.random() * 9000); // 4 digit angka
+            let suffix = '';
+            for (let i = 0; i < 4; i++) {
+              suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return `CORDER-LIFE-${number}-${suffix}`;
+          }
+          const newLicense = {
+            createdAt: new Date().toISOString(),
+            currentDevices: 0,
+            isActive: false,
+            key: generateLicenseKey(),
+            maxDevices: 1,
+            notes: 'Seller', // bisa diganti dengan input seller
+            type: 'PREMIUM LIFETIME',
+          };
+          await addDoc(collection(db, 'licenses'), newLicense);
+        }}
+      >
+        <Text style={styles.createButtonText}>+ Buat License Baru</Text>
+      </TouchableOpacity>
       <View style={styles.actionRow}>
         <TouchableOpacity style={styles.actionButton}><Text>Refresh</Text></TouchableOpacity>
         <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#ffcccc' }]}><Text>Reset App</Text></TouchableOpacity>
@@ -177,12 +204,21 @@ export default function App() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.deleteButton}
-                    onPress={async () => {
-                      // Konfirmasi sebelum hapus
-                      const confirm = window.confirm ? window.confirm('Yakin hapus license ini?') : true;
-                      if (confirm) {
-                        await deleteDoc(doc(db, 'licenses', license.id));
-                      }
+                    onPress={() => {
+                      Alert.alert(
+                        'Konfirmasi Hapus',
+                        'Yakin hapus license?',
+                        [
+                          { text: 'Batal', style: 'cancel' },
+                          {
+                            text: 'Hapus',
+                            style: 'destructive',
+                            onPress: async () => {
+                              await deleteDoc(doc(db, 'licenses', license.id));
+                            },
+                          },
+                        ]
+                      );
                     }}
                   >
                     <Text>🗑️</Text>
