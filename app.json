@@ -4,7 +4,7 @@
     "slug": "license-manager-admin",
     "version": "1.0.0",
     "orientation": "portrait",
-  "icon": "./assets/iconapp.png",
+    "icon": "./assets/iconapp.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -20,10 +20,16 @@
         "foregroundImage": "./assets/iconapp.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.wiraz.licensemanageradmin"
     },
     "web": {
       "favicon": "./assets/iconapp.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f2ef37ed-2f05-45ee-b551-2abd28cb47dd"
+      }
     }
   }
 }
