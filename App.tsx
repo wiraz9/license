@@ -165,7 +165,7 @@ export default function App() {
           const newLicense = {
             createdAt: new Date().toISOString(),
             currentDevices: 0,
-            isActive: false,
+            isActive: true,
             key: generateLicenseKey(),
             maxDevices: 1,
             notes: 'Seller', // bisa diganti dengan input seller
@@ -185,77 +185,86 @@ export default function App() {
         <ActivityIndicator size="large" color="#1abc9c" style={{ marginTop: 32 }} />
       ) : (
         <ScrollView style={styles.licenseList}>
-          {licenseList.map((license, idx) => {
-            // Status lisensi diambil dari keberadaan di activations
-            const activation = activations.find(a => a.licenseDocId === license.id || a.licenseKey === license.key);
-            const isActivated = !!activation;
-            return (
-              <View key={idx} style={styles.licenseCard}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={styles.licenseId}>{license.key}</Text>
-                  <Text style={[styles.status, {backgroundColor: isActivated ? '#27ae60' : '#2fa4ff'}]}>
-                    {isActivated ? 'Terpakai' : 'Ready'}
-                  </Text>
-                </View>
-                <Text>Lisensi: {license.key}</Text>
-                <Text>Owner: {activation ? activation.ownerName : '-'}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 4 }}>
-                  <Text>Status Lisensi: </Text>
-                  <Switch
-                    value={isActivated}
-                    disabled
-                    thumbColor={isActivated ? '#27ae60' : '#ccc'}
-                  />
-                </View>
-                {activation && (
-                  <View style={{ marginBottom: 4 }}>
-                    <Text>Activated At: {activation.activatedAt}</Text>
-                    <Text>Device ID: {activation.deviceId}</Text>
-                    <Text>App Version: {activation.appVersion}</Text>
-                    <Text>Device Info:</Text>
-                    <Text>- Brand: {activation.deviceInfo.brand || '-'}</Text>
-                    <Text>- Model: {activation.deviceInfo.modelName || '-'}</Text>
-                    <Text>- OS: {activation.deviceInfo.osName || '-'} {activation.deviceInfo.osVersion || ''}</Text>
-                    <Text>- Type: {activation.deviceInfo.deviceType || '-'}</Text>
-                    <Text>- Memory: {activation.deviceInfo.totalMemory || '-'}</Text>
+          {[...licenseList]
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .map((license, idx) => {
+              // Status lisensi diambil dari keberadaan di activations
+              const activation = activations.find(a => a.licenseDocId === license.id || a.licenseKey === license.key);
+              const isActivated = !!activation;
+              return (
+                <View key={idx} style={styles.licenseCard}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={styles.licenseId}>{license.key}</Text>
+                    <Text style={[styles.status, {backgroundColor: isActivated ? '#27ae60' : '#2fa4ff'}]}>
+                      {isActivated ? 'Terpakai' : 'Ready'}
+                    </Text>
                   </View>
-                )}
-                <Text>Notes: {license.notes || '-'}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                  <TouchableOpacity
-                    style={styles.copyButton}
-                    onPress={() => {
-                      Clipboard.setString(license.key);
-                      showToast('License berhasil di copy');
-                    }}
-                  >
-                    <Text>📋</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => {
-                      Alert.alert(
-                        'Konfirmasi Hapus',
-                        'Yakin hapus license?',
-                        [
-                          { text: 'Batal', style: 'cancel' },
-                          {
-                            text: 'Hapus',
-                            style: 'destructive',
-                            onPress: async () => {
-                              await deleteDoc(doc(db, 'licenses', license.id));
+                  <Text>Lisensi: {license.key}</Text>
+                  <Text>Owner: {activation ? activation.ownerName : '-'}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 4 }}>
+                    <Text>Status Lisensi: </Text>
+                    <Switch
+                      value={license.isActive}
+                      onValueChange={async (value) => {
+                        try {
+                          const { doc, updateDoc } = await import('firebase/firestore');
+                          await updateDoc(doc(db, 'licenses', license.id), { isActive: value });
+                        } catch (err) {
+                          Alert.alert('Gagal Update', 'Tidak bisa mengubah status lisensi.');
+                        }
+                      }}
+                      thumbColor={license.isActive ? '#27ae60' : '#ccc'}
+                    />
+                  </View>
+                  {activation && (
+                    <View style={{ marginBottom: 4 }}>
+                      <Text>Activated At: {activation.activatedAt}</Text>
+                      <Text>Device ID: {activation.deviceId}</Text>
+                      <Text>App Version: {activation.appVersion}</Text>
+                      <Text>Device Info:</Text>
+                      <Text>- Brand: {activation.deviceInfo.brand || '-'}</Text>
+                      <Text>- Model: {activation.deviceInfo.modelName || '-'}</Text>
+                      <Text>- OS: {activation.deviceInfo.osName || '-'} {activation.deviceInfo.osVersion || ''}</Text>
+                      <Text>- Type: {activation.deviceInfo.deviceType || '-'}</Text>
+                      <Text>- Memory: {activation.deviceInfo.totalMemory || '-'}</Text>
+                    </View>
+                  )}
+                  <Text>Notes: {license.notes || '-'}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                    <TouchableOpacity
+                      style={styles.copyButton}
+                      onPress={() => {
+                        Clipboard.setString(license.key);
+                        showToast('License berhasil di copy');
+                      }}
+                    >
+                      <Text>📋</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => {
+                        Alert.alert(
+                          'Konfirmasi Hapus',
+                          'Yakin hapus license?',
+                          [
+                            { text: 'Batal', style: 'cancel' },
+                            {
+                              text: 'Hapus',
+                              style: 'destructive',
+                              onPress: async () => {
+                                await deleteDoc(doc(db, 'licenses', license.id));
+                              },
                             },
-                          },
-                        ]
-                      );
-                    }}
-                  >
-                    <Text>🗑️</Text>
-                  </TouchableOpacity>
+                          ]
+                        );
+                      }}
+                    >
+                      <Text>🗑️</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            );
-          })}
+              );
+            })}
         </ScrollView>
       )}
       {showCopyMessage && (
