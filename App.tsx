@@ -79,6 +79,54 @@ export default function App() {
   const [licenseList, setLicenseList] = useState<License[]>([]);
   const [activations, setActivations] = useState<Activation[]>([]);
   const [loading, setLoading] = useState(true);
+  // For manual refresh
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Function to fetch data manually
+  const fetchData = async () => {
+    setRefreshing(true);
+    try {
+      const { getDocs, collection } = await import('firebase/firestore');
+      // Licenses
+      const licenseSnap = await getDocs(collection(db, 'licenses'));
+      const licenses: License[] = licenseSnap.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          key: d.key || '',
+          type: d.type || '',
+          isActive: d.isActive ?? false,
+          createdAt: d.createdAt || '',
+          activatedAt: d.activatedAt || '',
+          currentDevices: d.currentDevices ?? 0,
+          maxDevices: d.maxDevices ?? 0,
+          notes: d.notes || '',
+          deviceId: d.deviceId || '',
+          deviceInfo: d.deviceInfo || {},
+        };
+      });
+      setLicenseList(licenses);
+      // Activations
+      const activationSnap = await getDocs(collection(db, 'activations'));
+      const activs: Activation[] = activationSnap.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          activatedAt: d.activatedAt || '',
+          appVersion: d.appVersion || '',
+          deviceId: d.deviceId || '',
+          deviceInfo: d.deviceInfo || {},
+          licenseDocId: d.licenseDocId || '',
+          licenseKey: d.licenseKey || '',
+          ownerName: d.ownerName || '',
+        };
+      });
+      setActivations(activs);
+    } catch (err) {
+      Alert.alert('Refresh Gagal', 'Tidak bisa mengambil data dari Firebase.');
+    }
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     // Listen licenses
@@ -171,13 +219,20 @@ export default function App() {
             notes: 'Seller', // bisa diganti dengan input seller
             type: 'PREMIUM LIFETIME',
           };
-          await addDoc(collection(db, 'licenses'), newLicense);
+          try {
+            await addDoc(collection(db, 'licenses'), newLicense);
+            Alert.alert('Berhasil', 'Lisensi berhasil dibuat');
+          } catch (err) {
+            Alert.alert('Gagal', 'Lisensi gagal dibuat');
+          }
         }}
       >
         <Text style={styles.createButtonText}>+ Buat License Baru</Text>
       </TouchableOpacity>
       <View style={styles.actionRow}>
-  <TouchableOpacity style={styles.actionButton}><Text>Refresh</Text></TouchableOpacity>
+  <TouchableOpacity style={styles.actionButton} onPress={fetchData}>
+    <Text>{refreshing ? 'Refreshing...' : 'Refresh'}</Text>
+  </TouchableOpacity>
   <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#ffe066' }]} onPress={exportToCSV}><Text>Export</Text></TouchableOpacity>
   <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#ccf2ff' }]}><Text>Info</Text></TouchableOpacity>
       </View>
